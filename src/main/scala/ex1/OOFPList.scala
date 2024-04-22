@@ -7,28 +7,29 @@ enum List[A]:
   def ::(h: A): List[A] = List.::(h, this)
 
   def head: Option[A] = this match
-    case h :: t => Some(h)  // pattern for scala.Option
-    case _ => None          // pattern for scala.Option
+    case h :: t => Some(h)
+    case _      => None // pattern for scala.Option
 
   def tail: Option[List[A]] = this match
     case h :: t => Some(t)
-    case _ => None
+    case _      => None
+
   def foreach(consumer: A => Unit): Unit = this match
     case h :: t => consumer(h); t.foreach(consumer)
-    case _ =>
+    case _      =>
 
   def get(pos: Int): Option[A] = this match
     case h :: t if pos == 0 => Some(h)
-    case h :: t if pos > 0 => t.get(pos - 1)
-    case _ => None
+    case h :: t if pos > 0  => t.get(pos - 1)
+    case _                  => None
 
   def foldLeft[B](init: B)(op: (B, A) => B): B = this match
     case h :: t => t.foldLeft(op(init, h))(op)
-    case _ => init
+    case _      => init
 
   def foldRight[B](init: B)(op: (A, B) => B): B = this match
     case h :: t => op(h, t.foldRight(init)(op))
-    case _ => init
+    case _      => init
 
   def append(list: List[A]): List[A] =
     foldRight(list)(_ :: _)
@@ -41,17 +42,31 @@ enum List[A]:
   def map[B](fun: A => B): List[B] = flatMap(a => fun(a) :: Nil())
 
   def reduce(op: (A, A) => A): A = this match
-    case Nil() => throw new IllegalStateException()
+    case Nil()  => throw new IllegalStateException()
     case h :: t => t.foldLeft(h)(op)
 
   // Exercise: implement the following methods
-  def zipWithValue[B](value: B): List[(A, B)] = ???
-  def length(): Int = ???
-  def zipWithIndex: List[(A, Int)] = ???
-  def partition(predicate: A => Boolean): (List[A], List[A]) = ???
-  def span(predicate: A => Boolean): (List[A], List[A]) = ???
-  def takeRight(n: Int): List[A] = ???
-  def collect(predicate: PartialFunction[A, A]): List[A] = ???
+  def zipWithValue[B](value: B): List[(A, B)] = map { h => (h, value) }
+
+  def length: Int = foldRight(0) { (h, c) => c + 1 }
+
+  def zipWithIndex: List[(A, Int)] = foldLeft(Nil()) { (t, h) => t append (h, t.length) :: Nil() }
+
+  def partition(predicate: A => Boolean): (List[A], List[A]) = foldLeft((Nil(), Nil())) { (ls, h) =>
+    (ls._1, ls._2, h) match
+      case (ll, lr, v) if predicate(v) => (ll append List(v), lr)
+      case (ll, lr, v)                 => (ll, lr append List(v))
+  }
+
+  def span(predicate: A => Boolean): (List[A], List[A]) = foldLeft((Nil(), Nil())) { (ls, h) =>
+    (ls._1, ls._2, h) match
+      case (ll, lr, v) if lr.length == 0 && predicate(v) => (ll append List(v), lr)
+      case (ll, lr, v)                                   => (ll, lr append List(v))
+  }
+
+  def takeRight(n: Int): List[A] = foldRight(Nil()) { (h, t) => if n > t.length then h :: t else t }
+
+  def collect(predicate: PartialFunction[A, A]): List[A] = filter(predicate.isDefinedAt).map(predicate)
 // Factories
 object List:
 
@@ -67,12 +82,13 @@ object Test extends App:
 
   import List.*
   val reference = List(1, 2, 3, 4)
-  println(reference.zipWithValue(10)) // List((1, 10), (2, 10), (3, 10), (4, 10))
-  println(reference.zipWithIndex) // List((1, 0), (2, 1), (3, 2), (4, 3))
-  println(reference.partition(_ % 2 == 0)) // (List(2, 4), List(1, 3))
-  println(reference.span(_ % 2 != 0)) // (List(1), List(2, 3, 4))
-  println(reference.span(_ < 3)) // (List(1, 2), List(3, 4))
-  println(reference.reduce(_ + _)) // 10
-  println(List(10).reduce(_ + _)) // 10
-  println(reference.takeRight(3)) // List(2, 3, 4)
-  println(reference.collect { case x if x % 2 == 0 => x + 1 }) // List(3, 5)
+  println(s"zipWithValue: ${reference.zipWithValue(10)}") // List((1, 10), (2, 10), (3, 10), (4, 10)}
+  println(s"zipWithIndex: ${reference.zipWithIndex}") // List((1, 0), (2, 1), (3, 2), (4, 3))
+  println(s"partition:    ${reference.partition(_ % 2 == 0)}") // (List(2, 4), List(1, 3))
+  println(s"span:         ${reference.span(_ % 2 != 0)}") // (List(1), List(2, 3, 4))
+  println(s"span          ${reference.span(_ < 3)}") // (List(1, 2), List(3, 4))
+  println(s"reduce:       ${reference.reduce(_ + _)}") // 10
+  println(s"reduce:       ${List(10).reduce(_ + _)}") // 10
+  println(s"takeRight:    ${reference.takeRight(3)}") // List(2, 3, 4)
+  println(s"takeRight:    ${reference.takeRight(1)}") // List(4)
+  println(s"collect:      ${reference.collect { case x if x % 2 == 0 => x + 1 }}") // List(3, 5)
