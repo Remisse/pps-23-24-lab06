@@ -48,16 +48,14 @@ object ConferenceReviewings:
 
     override def orderedScores(article: Article, question: Question): List[Int] =
       reviews
-        .filter(_._1 == article)
-        .map(_._2(question))
+        .collect { case r if r._1 == article => r._2(question) }
         .sortWith(Ordering.Int.lt)
 
     private def reviewsCount(a: Article): Int = reviews.count(_._1 == a)
 
     override def averageFinalScore(article: Article): Double =
       reviews
-        .filter(_._1 == article)
-        .map(_._2(Question.Final))
+        .collect { case r if r._1 == article => r._2(Question.Final) }
         .sum
         .toDouble / reviewsCount(article)
 
@@ -68,8 +66,7 @@ object ConferenceReviewings:
 
     override def sortedAcceptedArticles: List[(Article, Double)] =
       reviews
-        .filter(_._2(Question.Relevance) >= 8)
-        .map(_._1)
+        .collect { case r if r._2(Question.Relevance) >= 8 => r._1 }
         .distinct
         .map(a => (a, averageFinalScore(a)))
         .filter(_._2 > 5)
